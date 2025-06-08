@@ -1,6 +1,4 @@
 import streamlit as st
-import time
-import random
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -11,38 +9,12 @@ from firebase_admin import credentials, firestore
 import qrcode
 import io
 import base64
-import hashlib
 import json
 from groq import Groq
 import re
-import webbrowser
-import threading
-import schedule
 import os
-# Check for required packages and install if missing
 import sys
-import subprocess
-import os
 
-def install_packages():
-    try:
-        import firebase_admin
-        import groq
-        import qrcode
-    except ImportError:
-        print("Installing missing packages...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", 
-                              "firebase-admin==6.2.0", 
-                              "groq==0.4.0", 
-                              "qrcode==7.4.2"])
-        print("Packages installed successfully!")
-
-# Try to install packages if they're missing
-try:
-    install_packages()
-except Exception as e:
-    st.error(f"Failed to install required packages: {e}")
-    st.info("Please contact support if this error persists.")
 # Set page config first to avoid warnings
 st.set_page_config(
     page_title="Athena Museum Booking Assistant",
@@ -51,46 +23,96 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Initialize Firebase
+# Initialize Firebase with enhanced error handling
 @st.cache_resource
 def init_firebase():
     try:
         if not firebase_admin._apps:
             # Try to use Firebase credentials from Streamlit secrets first
             if "firebase" in st.secrets:
-                firebase_config = {
-                    "type": st.secrets["firebase"]["type"],
-                    "project_id": st.secrets["firebase"]["project_id"],
-                    "private_key_id": st.secrets["firebase"]["private_key_id"],
-                    "private_key": st.secrets["firebase"]["private_key"].replace('\\n', '\n'),
-                    "client_email": st.secrets["firebase"]["client_email"],
-                    "client_id": st.secrets["firebase"]["client_id"],
-                    "auth_uri": st.secrets["firebase"]["auth_uri"],
-                    "token_uri": st.secrets["firebase"]["token_uri"],
-                    "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
-                    "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"],
-                    "universe_domain": st.secrets["firebase"]["universe_domain"]
-                }
-                cred = credentials.Certificate(firebase_config)
+                try:
+                    # Get private key and ensure proper formatting
+                    private_key = st.secrets["firebase"]["private_key"]
+                    
+                    # Handle different private key formats
+                    if isinstance(private_key, str):
+                        # Replace literal \n with actual newlines
+                        private_key = private_key.replace('\\n', '\n')
+                        
+                        # Ensure proper PEM format
+                        if not private_key.startswith('-----BEGIN PRIVATE KEY-----'):
+                            # If key doesn't have headers, add them
+                            private_key = f"-----BEGIN PRIVATE KEY-----\n{private_key}\n-----END PRIVATE KEY-----\n"
+                    
+                    firebase_config = {
+                        "type": st.secrets["firebase"]["type"],
+                        "project_id": st.secrets["firebase"]["project_id"],
+                        "private_key_id": st.secrets["firebase"]["private_key_id"],
+                        "private_key": private_key,
+                        "client_email": st.secrets["firebase"]["client_email"],
+                        "client_id": st.secrets["firebase"]["client_id"],
+                        "auth_uri": st.secrets["firebase"]["auth_uri"],
+                        "token_uri": st.secrets["firebase"]["token_uri"],
+                        "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
+                        "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"],
+                        "universe_domain": st.secrets["firebase"]["universe_domain"]
+                    }
+                    cred = credentials.Certificate(firebase_config)
+                    st.success("✅ Firebase initialized using Streamlit secrets")
+                except Exception as secrets_error:
+                    st.error(f"Failed to load from secrets: {secrets_error}")
+                    return None
             else:
                 # Fallback to local file for development
-                cred = credentials.Certificate('firebase_auth.json')
+                if os.path.exists('firebase_auth.json'):
+                    try:
+                        # Read and validate the JSON file
+                        with open('firebase_auth.json', 'r') as f:
+                            firebase_config = json.load(f)
+                        
+                        # Ensure private key is properly formatted
+                        if 'private_key' in firebase_config:
+                            private_key = firebase_config['private_key']
+                            if isinstance(private_key, str):
+                                # Replace literal \n with actual newlines
+                                private_key = private_key.replace('\\n', '\n')
+                                firebase_config['private_key'] = private_key
+                        
+                        cred = credentials.Certificate(firebase_config)
+                        st.success("✅ Firebase initialized using local file")
+                    except json.JSONDecodeError as json_error:
+                        st.error(f"Invalid JSON in firebase_auth.json: {json_error}")
+                        return None
+                    except Exception as file_error:
+                        st.error(f"Error reading firebase_auth.json: {file_error}")
+                        return None
+                else:
+                    st.error("❌ Firebase configuration not found!")
+                    st.info("Please add Firebase credentials to .streamlit/secrets.toml or create firebase_auth.json file")
+                    return None
             
             firebase_admin.initialize_app(cred)
         return firestore.client()
     except Exception as e:
         st.error(f"Firebase initialization failed: {e}")
+        st.info("Please check your Firebase configuration and try again.")
         return None
 
 # Initialize Groq client
 @st.cache_resource
 def init_groq():
-    # Try to get API key from secrets first, then fallback to hardcoded
     try:
-        api_key = st.secrets.get("GROQ_API_KEY", "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")
+        # Try to get API key from secrets first
+        if "GROQ_API_KEY" in st.secrets:
+            api_key = st.secrets["GROQ_API_KEY"]
+        else:
+            # Fallback for development (remove in production)
+            api_key = "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"
+        
         return Groq(api_key=api_key)
-    except:
-        return Groq(api_key="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")
+    except Exception as e:
+        st.error(f"Failed to initialize Groq client: {e}")
+        return None
 
 # Initialize clients
 db = init_firebase()
@@ -99,17 +121,25 @@ MODEL = 'llama3-8b-8192'
 
 # SMTP Configuration - Use secrets if available
 try:
-    SMTP_SERVER = st.secrets.get("SMTP_SERVER", "smtp.gmail.com")
-    SMTP_PORT = int(st.secrets.get("SMTP_PORT", 587))
-    SMTP_USERNAME = st.secrets.get("SMTP_USERNAME", "chsantosh2004@gmail.com")
-    SMTP_PASSWORD = st.secrets.get("SMTP_PASSWORD", "kzka uohw hbxg gwgi")
-except:
+    if "SMTP_SERVER" in st.secrets:
+        SMTP_SERVER = st.secrets["SMTP_SERVER"]
+        SMTP_PORT = int(st.secrets["SMTP_PORT"])
+        SMTP_USERNAME = st.secrets["SMTP_USERNAME"]
+        SMTP_PASSWORD = st.secrets["SMTP_PASSWORD"]
+    else:
+        # Fallback for development
+        SMTP_SERVER = "smtp.gmail.com"
+        SMTP_PORT = 587
+        SMTP_USERNAME = "chsantosh2004@gmail.com"
+        SMTP_PASSWORD = "kzka uohw hbxg gwgi"
+except Exception as e:
+    st.error(f"SMTP configuration error: {e}")
     SMTP_SERVER = "smtp.gmail.com"
     SMTP_PORT = 587
-    SMTP_USERNAME = "chsantosh2004@gmail.com"
-    SMTP_PASSWORD = "kzka uohw hbxg gwgi"
+    SMTP_USERNAME = ""
+    SMTP_PASSWORD = ""
 
-# Updated Flask app URL - Your deployed Vercel app
+# Flask app URL
 FLASK_APP_URL = "https://my-ticket-tau.vercel.app"
 
 # Museum information
@@ -163,7 +193,6 @@ def init_session_state():
         st.session_state.booking_created = False
         st.session_state.current_booking = None
         st.session_state.displayed_booking = None
-        st.session_state.cleanup_running = False
 
 # Optimized CSS with stable animations
 def load_optimized_css():
@@ -469,7 +498,7 @@ def load_optimized_css():
     </style>
     """
 
-# Automatic cleanup function for expired bookings
+# Cleanup function for expired bookings
 def cleanup_expired_bookings():
     """Clean up expired bookings from Firebase"""
     try:
@@ -477,8 +506,6 @@ def cleanup_expired_bookings():
             return
         
         current_time = datetime.now()
-        
-        # Get all bookings
         bookings_ref = db.collection('bookings')
         bookings = bookings_ref.get()
         
@@ -488,18 +515,14 @@ def cleanup_expired_bookings():
             validity_date = booking_data.get('validity')
             
             if validity_date:
-                # Handle Firestore timestamp
                 if hasattr(validity_date, 'replace'):
                     validity_datetime = validity_date.replace(tzinfo=None)
                 else:
                     validity_datetime = validity_date
                 
-                # Check if booking is expired
                 if validity_datetime <= current_time:
-                    # Delete expired booking
                     booking_doc.reference.delete()
                     
-                    # Also delete phone index if exists
                     email = booking_data.get('email', '')
                     if email:
                         phone_clean = re.sub(r'[^\d+]', '', booking_data.get('phone', ''))
@@ -518,34 +541,25 @@ def cleanup_expired_bookings():
     except Exception as e:
         st.error(f"Cleanup error: {str(e)}")
 
-# Run cleanup on app start
-@st.cache_resource
-def run_initial_cleanup():
-    cleanup_expired_bookings()
-    return True
-
 # Helper function to detect identifier type
 def detect_identifier_type(text):
     """Detect if text contains booking ID, email, or phone number"""
     text = text.strip()
     
-    # Check for email
     if '@' in text and '.' in text:
         email_match = re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text)
         if email_match:
             return "email", email_match.group()
     
-    # Check for booking ID (starts with ATH)
     booking_id_match = re.search(r'\bATH\d+\b', text, re.IGNORECASE)
     if booking_id_match:
         return "booking_id", booking_id_match.group().upper()
     
-    # Check for phone number (various formats)
     phone_patterns = [
-        r'\+91[\s-]?\d{10}',  # +91 followed by 10 digits
-        r'\b91\d{10}\b',      # 91 followed by 10 digits
-        r'\b\d{10}\b',        # 10 digits
-        r'\+\d{1,3}[\s-]?\d{8,12}',  # International format
+        r'\+91[\s-]?\d{10}',
+        r'\b91\d{10}\b',
+        r'\b\d{10}\b',
+        r'\+\d{1,3}[\s-]?\d{8,12}',
     ]
     
     for pattern in phone_patterns:
@@ -558,6 +572,10 @@ def detect_identifier_type(text):
 # Email sending function
 def send_email_confirmation(email, booking_details):
     try:
+        if not SMTP_USERNAME or not SMTP_PASSWORD:
+            st.warning("Email configuration not available")
+            return False
+            
         msg = MIMEMultipart()
         msg['From'] = SMTP_USERNAME
         msg['To'] = email
@@ -627,25 +645,21 @@ def send_email_confirmation(email, booking_details):
         st.error(f"Failed to send email: {str(e)}")
         return False
 
-# Enhanced Firebase booking function with proper error handling
+# Enhanced Firebase booking function
 def create_booking(email, phone, tickets):
     try:
         if not db:
             return {"error": "Database connection failed"}
         
-        # Clean up expired bookings first
         cleanup_expired_bookings()
         
-        # Use email as document ID for easy retrieval
         email_doc_id = email.replace('.', '_').replace('@', '_at_')
         
-        # Check if booking already exists for this email
         try:
             existing_doc = db.collection('bookings').document(email_doc_id).get()
             if existing_doc.exists:
                 existing_data = existing_doc.to_dict()
                 
-                # Check if existing booking is still valid
                 validity_date = existing_data.get('validity')
                 if validity_date:
                     if hasattr(validity_date, 'replace'):
@@ -653,10 +667,8 @@ def create_booking(email, phone, tickets):
                     else:
                         validity_datetime = validity_date
                     
-                    # If booking is expired, delete it
                     if validity_datetime <= datetime.now():
                         existing_doc.reference.delete()
-                        # Also delete phone index
                         phone_clean = re.sub(r'[^\d+]', '', phone)
                         if phone_clean:
                             phone_doc_id = f"phone_{phone_clean}"
@@ -665,7 +677,6 @@ def create_booking(email, phone, tickets):
                             except:
                                 pass
                     else:
-                        # Return existing valid booking
                         if existing_data.get('status') == 'pending':
                             return {
                                 "success": True,
@@ -677,14 +688,10 @@ def create_booking(email, phone, tickets):
         except Exception as e:
             st.write(f"No existing booking found: {e}")
         
-        # Calculate amount
         amount = tickets * 500
-        
-        # Create booking timestamp
         booking_time = datetime.now()
         validity_time = booking_time + timedelta(days=1)
         
-        # Create booking data with email as primary identifier
         booking_data = {
             "email": email,
             "phone": phone,
@@ -693,16 +700,14 @@ def create_booking(email, phone, tickets):
             "status": "pending",
             "created_at": booking_time,
             "validity": validity_time,
-            "booking_id": None,  # Will be set by Flask after payment
-            "hash": None,        # Will be set by Flask after payment
+            "booking_id": None,
+            "hash": None,
             "updated_at": booking_time,
             "doc_id": email_doc_id
         }
         
-        # Store in Firebase using email as document ID
         db.collection('bookings').document(email_doc_id).set(booking_data)
         
-        # Also create a phone number index for lookup
         if phone:
             phone_clean = re.sub(r'[^\d+]', '', phone)
             phone_doc_id = f"phone_{phone_clean}"
@@ -714,7 +719,6 @@ def create_booking(email, phone, tickets):
             }
             db.collection('phone_index').document(phone_doc_id).set(phone_index_data)
         
-        # Send email confirmation
         booking_details = {
             "phone_number": phone,
             "no_of_tickets": tickets
@@ -733,18 +737,16 @@ def create_booking(email, phone, tickets):
         st.error(f"Booking creation error: {str(e)}")
         return {"error": f"Booking failed: {str(e)}"}
 
-# Enhanced get booking information function
+# Get booking information function
 def get_booking_info(identifier):
     try:
         if not db:
             return {"error": "Database connection failed"}
         
-        # Clean up expired bookings first
         cleanup_expired_bookings()
         
         booking_doc = None
         
-        # Search by email (primary key)
         if '@' in identifier:
             email_doc_id = identifier.replace('.', '_').replace('@', '_at_')
             try:
@@ -754,7 +756,6 @@ def get_booking_info(identifier):
             except Exception as e:
                 return {"error": f"Error searching by email: {str(e)}"}
         
-        # Search by booking ID
         elif identifier.upper().startswith('ATH'):
             try:
                 bookings = db.collection('bookings').where('booking_id', '==', identifier.upper()).limit(1).get()
@@ -765,10 +766,8 @@ def get_booking_info(identifier):
             except Exception as e:
                 return {"error": f"Error searching by booking ID: {str(e)}"}
         
-        # Search by phone number
         elif any(char.isdigit() for char in identifier):
             try:
-                # Clean phone number
                 clean_phone = re.sub(r'[^\d+]', '', identifier)
                 possible_phones = [
                     clean_phone,
@@ -803,15 +802,13 @@ def get_booking_info(identifier):
         if not booking_doc or not booking_doc.exists:
             return {"error": f"No booking found for: {identifier}"}
         
-        # Get the booking data
         booking_data = booking_doc.to_dict()
         
-        # Calculate validity status
         validity_date = booking_data.get('validity')
         current_time = datetime.now()
         
         if validity_date:
-            if hasattr(validity_date, 'replace'):  # Firestore timestamp
+            if hasattr(validity_date, 'replace'):
                 validity_datetime = validity_date.replace(tzinfo=None)
             else:
                 validity_datetime = validity_date
@@ -819,7 +816,6 @@ def get_booking_info(identifier):
             is_valid = validity_datetime > current_time
             validity_str = validity_datetime.strftime('%d %b %Y, %H:%M')
             
-            # Calculate remaining time
             if is_valid:
                 time_remaining = validity_datetime - current_time
                 hours_remaining = int(time_remaining.total_seconds() // 3600)
@@ -876,6 +872,9 @@ def generate_qr_code(booking_id, hash_code):
 # Chat with AI
 def chat_with_ai(messages):
     try:
+        if not client:
+            return "I apologize, but the AI service is currently unavailable. Please try again later."
+            
         system_message = {
             "role": "system",
             "content": """You are EaseEntry AI, the official assistant for the Athena Museum of Science and Technology. 
@@ -911,20 +910,17 @@ If users want to check bookings, ask for their booking ID, email address, or pho
     except Exception as e:
         return f"I apologize, but I'm experiencing technical difficulties. Please try again. Error: {str(e)}"
 
-# Function to display booking validity with stable rendering
+# Function to display booking validity
 def display_booking_validity(booking_info):
-    """Display booking validity information with stable rendering"""
+    """Display booking validity information"""
     if booking_info.get("success"):
         booking = booking_info
         
-        # Create a unique key for this booking display
         booking_key = f"{booking['email']}_{booking.get('booking_id', 'pending')}"
         
-        # Store in session state to prevent flickering
         if st.session_state.displayed_booking != booking_key:
             st.session_state.displayed_booking = booking_key
         
-        # Determine status and validity
         if booking['status'] == 'completed':
             if booking['is_valid']:
                 status_emoji = "✅"
@@ -943,7 +939,6 @@ def display_booking_validity(booking_info):
             status_text = "CANCELLED"
             status_color = "#ff6b6b"
         
-        # Create stable booking display
         with st.container():
             st.markdown(f"""
             <div class="ticket-display" id="booking-{booking_key}">
@@ -981,7 +976,6 @@ def display_booking_validity(booking_info):
             </div>
             """, unsafe_allow_html=True)
             
-            # Show payment link if pending
             if booking['status'] == 'pending':
                 payment_url = f"{FLASK_APP_URL}?email={booking['email']}"
                 st.markdown(f"""
@@ -992,7 +986,6 @@ def display_booking_validity(booking_info):
                 </div>
                 """, unsafe_allow_html=True)
             
-            # Show QR code info if completed and valid
             if booking['status'] == 'completed' and booking.get('hash') and booking['is_valid']:
                 qr_code = generate_qr_code(booking['booking_id'], booking['hash'])
                 if qr_code:
@@ -1017,27 +1010,19 @@ def display_booking_validity(booking_info):
 
 # Main application
 def main():
-    # Initialize session state
     init_session_state()
     
-    # Run initial cleanup
-    run_initial_cleanup()
-    
-    # Load CSS
     st.markdown(load_optimized_css(), unsafe_allow_html=True)
     
-    # Title
     st.markdown('<h1 class="main-title">🏛️ Athena Museum</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">AI-Powered Booking Assistant</p>', unsafe_allow_html=True)
     
-    # Museum image
+    # Fixed deprecated parameter
     st.image("https://images.unsplash.com/photo-1566127992631-137a642a90f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=90", 
-             caption="Athena Museum of Science and Technology", use_column_width=True)
+             caption="Athena Museum of Science and Technology", use_container_width=True)
     
-    # Chat interface
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
-    # Display chat messages
     for message in st.session_state.messages:
         if message["role"] == "user":
             st.markdown(f"""
@@ -1056,7 +1041,6 @@ def main():
     
     st.markdown('</div>', unsafe_allow_html=True)
     
-    # Show booking success message if booking was just created
     if st.session_state.booking_created and st.session_state.current_booking:
         booking = st.session_state.current_booking
         payment_url = booking['payment_url']
@@ -1069,23 +1053,17 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        # Payment button with JavaScript redirect
         st.markdown(f"""
         <div style="text-align: center; margin: 2rem 0;">
             <a href="{payment_url}" target="_blank" class="payment-link">
                 💳 Complete Payment Now - Click Here
             </a>
         </div>
-        <script>
-            window.open('{payment_url}', '_blank');
-        </script>
         """, unsafe_allow_html=True)
         
-        # Reset the booking created flag
         st.session_state.booking_created = False
         st.session_state.current_booking = None
     
-    # Booking form
     if st.session_state.show_booking_form:
         st.markdown('<div class="booking-form">', unsafe_allow_html=True)
         st.markdown("### 🎫 Book Your Tickets")
@@ -1110,11 +1088,9 @@ def main():
                             result = create_booking(email, phone, tickets)
                         
                         if result.get("success"):
-                            # Store booking info for display
                             st.session_state.current_booking = result
                             st.session_state.booking_created = True
                             
-                            # Add to chat
                             if result.get("existing"):
                                 chat_message = f"I found an existing pending booking for your email. Please complete your payment for ₹{result['amount']}."
                             else:
@@ -1141,7 +1117,6 @@ def main():
         
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # Ticket info form
     if st.session_state.show_ticket_info:
         st.markdown('<div class="booking-form">', unsafe_allow_html=True)
         st.markdown("### 🔍 Check Your Booking")
@@ -1156,7 +1131,6 @@ def main():
                     result = get_booking_info(identifier)
                 
                 if result.get("success"):
-                    # Display booking validity with stable rendering
                     display_booking_validity(result)
                     
                     booking = result
@@ -1181,23 +1155,18 @@ def main():
         
         st.markdown('</div>', unsafe_allow_html=True)
     
-    # Chat input
     user_input = st.chat_input("💬 Type your message here...")
     
     if user_input and not st.session_state.processing:
-        # Add user message
         st.session_state.messages.append({"role": "user", "content": user_input})
         
-        # Check if user input contains booking ID, email, or phone number
         identifier_type, identifier_value = detect_identifier_type(user_input)
         
         if identifier_type and identifier_value:
-            # Direct booking lookup without showing form
             with st.spinner("Checking your booking..."):
                 result = get_booking_info(identifier_value)
             
             if result.get("success"):
-                # Display booking validity with stable rendering
                 display_booking_validity(result)
                 
                 booking = result
@@ -1219,7 +1188,6 @@ def main():
             
             st.rerun()
         
-        # Check for booking intent
         elif any(keyword in user_input.lower() for keyword in ["book", "ticket", "reserve", "buy", "purchase"]):
             st.session_state.show_booking_form = True
             st.session_state.messages.append({
@@ -1228,7 +1196,6 @@ def main():
             })
             st.rerun()
         
-        # Check for status checking intent
         elif any(keyword in user_input.lower() for keyword in ["check", "status", "booking", "my booking", "ticket info", "find"]):
             st.session_state.show_ticket_info = True
             st.session_state.messages.append({
@@ -1238,7 +1205,6 @@ def main():
             st.rerun()
         
         else:
-            # Get AI response
             with st.spinner("Thinking..."):
                 ai_response = chat_with_ai(st.session_state.messages)
             
@@ -1248,7 +1214,6 @@ def main():
             })
             st.rerun()
     
-    # Museum information sidebar
     with st.sidebar:
         st.markdown("### 🏛️ Museum Information")
         st.markdown(f"""
@@ -1268,7 +1233,6 @@ def main():
         for exhibition in MUSEUM_INFO['exhibitions']:
             st.markdown(f"• **{exhibition['name']}** - {exhibition['description']}")
         
-        # Cleanup button for manual cleanup
         if st.button("🧹 Clean Expired Bookings"):
             cleanup_expired_bookings()
 
