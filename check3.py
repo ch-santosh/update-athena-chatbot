@@ -23,7 +23,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Initialize Firebase with enhanced error handling
+# Initialize Firebase with enhanced error handling (SILENT MODE)
 @st.cache_resource
 def init_firebase():
     try:
@@ -58,7 +58,7 @@ def init_firebase():
                         "universe_domain": st.secrets["firebase"]["universe_domain"]
                     }
                     cred = credentials.Certificate(firebase_config)
-                    st.success("✅ Firebase initialized using Streamlit secrets")
+                    # Removed the success message that was annoying users
                 except Exception as secrets_error:
                     st.error(f"Failed to load from secrets: {secrets_error}")
                     return None
@@ -79,7 +79,7 @@ def init_firebase():
                                 firebase_config['private_key'] = private_key
                         
                         cred = credentials.Certificate(firebase_config)
-                        st.success("✅ Firebase initialized using local file")
+                        # Removed the success message that was annoying users
                     except json.JSONDecodeError as json_error:
                         st.error(f"Invalid JSON in firebase_auth.json: {json_error}")
                         return None
@@ -1017,9 +1017,7 @@ def main():
     st.markdown('<h1 class="main-title">🏛️ Athena Museum</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">AI-Powered Booking Assistant</p>', unsafe_allow_html=True)
     
-    # Fixed deprecated parameter
-    st.image("https://images.unsplash.com/photo-1566127992631-137a642a90f4?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=90", 
-             caption="Athena Museum of Science and Technology", use_container_width=True)
+    # Removed the image that was causing the icon issue
     
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
