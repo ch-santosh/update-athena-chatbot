@@ -58,7 +58,6 @@ def init_firebase():
                         "universe_domain": st.secrets["firebase"]["universe_domain"]
                     }
                     cred = credentials.Certificate(firebase_config)
-                    # Removed the success message that was annoying users
                 except Exception as secrets_error:
                     st.error(f"Failed to load from secrets: {secrets_error}")
                     return None
@@ -79,7 +78,6 @@ def init_firebase():
                                 firebase_config['private_key'] = private_key
                         
                         cred = credentials.Certificate(firebase_config)
-                        # Removed the success message that was annoying users
                     except json.JSONDecodeError as json_error:
                         st.error(f"Invalid JSON in firebase_auth.json: {json_error}")
                         return None
@@ -98,7 +96,7 @@ def init_firebase():
         st.info("Please check your Firebase configuration and try again.")
         return None
 
-# Initialize Groq client
+# Initialize Groq client with NEW API KEY
 @st.cache_resource
 def init_groq():
     try:
@@ -106,8 +104,8 @@ def init_groq():
         if "GROQ_API_KEY" in st.secrets:
             api_key = st.secrets["GROQ_API_KEY"]
         else:
-            # Fallback for development (remove in production)
-            api_key = "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"
+            # Updated with your new API key
+            api_key = "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"
         
         return Groq(api_key=api_key)
     except Exception as e:
@@ -194,50 +192,70 @@ def init_session_state():
         st.session_state.current_booking = None
         st.session_state.displayed_booking = None
 
-# Optimized CSS with stable animations
+# Enhanced CSS with better device compatibility
 def load_optimized_css():
     return """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    
+    /* Reset and base styles for better compatibility */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
     
     .stApp {
         opacity: 1 !important;
         transition: none !important;
         background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%) !important;
         min-height: 100vh;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
     }
     
+    /* CSS Variables for better compatibility */
     :root {
-        --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        --secondary-gradient: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        --card-bg: rgba(255, 255, 255, 0.05);
-        --border-color: rgba(103, 126, 234, 0.3);
-        --text-primary: #ffffff;
-        --text-secondary: #b8c6db;
+        --primary-color: #667eea;
+        --secondary-color: #764ba2;
+        --accent-color: #4facfe;
         --success-color: #00d4aa;
         --error-color: #ff6b6b;
         --warning-color: #feca57;
+        --text-primary: #ffffff;
+        --text-secondary: #b8c6db;
+        --bg-card: rgba(255, 255, 255, 0.08);
+        --border-color: rgba(103, 126, 234, 0.3);
+        --shadow-light: 0 4px 15px rgba(0, 0, 0, 0.1);
+        --shadow-medium: 0 8px 25px rgba(0, 0, 0, 0.2);
+        --shadow-heavy: 0 12px 35px rgba(0, 0, 0, 0.3);
     }
     
+    /* Improved typography for all devices */
     html, body, [class*="css"] {
-        font-family: 'Montserrat', sans-serif !important;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif !important;
         color: var(--text-primary) !important;
         background: transparent !important;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeLegibility;
     }
     
+    /* Enhanced title with better visibility */
     .main-title {
-        font-size: clamp(2rem, 5vw, 4rem);
+        font-size: clamp(1.8rem, 4vw, 3.5rem);
         font-weight: 700;
         text-align: center;
-        margin: 2rem 0;
+        margin: 1.5rem 0;
         background: linear-gradient(45deg, #667eea, #764ba2, #4facfe, #00f2fe);
-        background-size: 400% 400%;
+        background-size: 300% 300%;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
-        animation: gradientShift 8s ease infinite;
-        text-shadow: 0 0 30px rgba(102, 126, 234, 0.5);
+        animation: gradientShift 6s ease infinite;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+        /* Fallback for devices that don't support background-clip */
+        color: #667eea;
     }
     
     @keyframes gradientShift {
@@ -246,241 +264,321 @@ def load_optimized_css():
     }
     
     .subtitle {
-        font-size: clamp(1rem, 3vw, 1.5rem);
+        font-size: clamp(0.9rem, 2.5vw, 1.2rem);
         text-align: center;
-        margin-bottom: 3rem;
+        margin-bottom: 2rem;
         color: var(--text-secondary);
-        font-weight: 300;
-        letter-spacing: 2px;
+        font-weight: 400;
+        letter-spacing: 0.5px;
+        line-height: 1.4;
     }
     
+    /* Improved chat container with better contrast */
     .chat-container {
-        max-height: 600px;
+        max-height: 500px;
         overflow-y: auto;
         padding: 1rem;
-        background: var(--card-bg);
-        border-radius: 20px;
+        background: var(--bg-card);
+        border-radius: 16px;
         border: 1px solid var(--border-color);
-        backdrop-filter: blur(20px);
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        margin-bottom: 1.5rem;
+        box-shadow: var(--shadow-medium);
+        /* Improved scrollbar for webkit browsers */
+        scrollbar-width: thin;
+        scrollbar-color: var(--primary-color) transparent;
     }
     
+    .chat-container::-webkit-scrollbar {
+        width: 6px;
+    }
+    
+    .chat-container::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    
+    .chat-container::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        border-radius: 3px;
+    }
+    
+    /* Enhanced chat messages with better readability */
     .chat-message {
-        padding: 1.5rem;
-        border-radius: 20px;
-        margin-bottom: 1.5rem;
+        padding: 1rem 1.2rem;
+        border-radius: 12px;
+        margin-bottom: 1rem;
         display: flex;
         align-items: flex-start;
-        gap: 1rem;
-        backdrop-filter: blur(10px);
+        gap: 0.8rem;
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        transition: all 0.2s ease;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
     }
     
     .chat-message.user {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
-        border-left: 4px solid #667eea;
-        margin-left: 2rem;
+        background: rgba(102, 126, 234, 0.15);
+        border-left: 3px solid var(--primary-color);
+        margin-left: 1rem;
     }
     
     .chat-message.assistant {
-        background: linear-gradient(135deg, rgba(79, 172, 254, 0.15), rgba(0, 242, 254, 0.15));
-        border-left: 4px solid #4facfe;
-        margin-right: 2rem;
+        background: rgba(79, 172, 254, 0.12);
+        border-left: 3px solid var(--accent-color);
+        margin-right: 1rem;
     }
     
+    /* Improved avatars */
     .avatar {
-        width: 45px;
-        height: 45px;
+        width: 36px;
+        height: 36px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-weight: bold;
-        font-size: 1.2rem;
+        font-weight: 600;
+        font-size: 1rem;
         flex-shrink: 0;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        box-shadow: var(--shadow-light);
     }
     
     .avatar.user {
-        background: var(--primary-gradient);
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
         color: white;
     }
     
     .avatar.assistant {
-        background: var(--accent-gradient);
+        background: linear-gradient(135deg, var(--accent-color), #00f2fe);
         color: white;
     }
     
+    /* Better message content styling */
     .message-content {
         flex-grow: 1;
-        line-height: 1.6;
-        font-size: 1rem;
+        line-height: 1.5;
+        font-size: 0.95rem;
+        color: var(--text-primary);
+        font-weight: 400;
     }
     
+    /* Enhanced form styling */
     .booking-form {
-        background: var(--card-bg);
-        border-radius: 20px;
-        padding: 2rem;
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 1.5rem;
         border: 1px solid var(--border-color);
-        backdrop-filter: blur(20px);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-        margin: 2rem 0;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: var(--shadow-medium);
+        margin: 1.5rem 0;
     }
     
+    /* Improved input styling for better visibility */
     .stTextInput > div > div > input,
     .stNumberInput > div > div > input {
-        background: rgba(255, 255, 255, 0.1) !important;
-        border: 2px solid var(--border-color) !important;
-        border-radius: 15px !important;
+        background: rgba(255, 255, 255, 0.12) !important;
+        border: 2px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 10px !important;
         color: var(--text-primary) !important;
-        padding: 1rem !important;
-        font-size: 1rem !important;
-        transition: all 0.3s ease !important;
+        padding: 0.8rem 1rem !important;
+        font-size: 0.95rem !important;
+        font-weight: 400 !important;
+        transition: all 0.2s ease !important;
+        font-family: inherit !important;
     }
     
     .stTextInput > div > div > input:focus,
     .stNumberInput > div > div > input:focus {
-        border-color: #667eea !important;
-        box-shadow: 0 0 20px rgba(102, 126, 234, 0.3) !important;
-        background: rgba(255, 255, 255, 0.15) !important;
+        border-color: var(--primary-color) !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2) !important;
+        background: rgba(255, 255, 255, 0.18) !important;
+        outline: none !important;
     }
     
+    .stTextInput > div > div > input::placeholder,
+    .stNumberInput > div > div > input::placeholder {
+        color: rgba(255, 255, 255, 0.5) !important;
+        font-weight: 400 !important;
+    }
+    
+    /* Enhanced button styling */
     .stButton > button {
-        background: var(--primary-gradient) !important;
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)) !important;
         color: white !important;
         border: none !important;
-        border-radius: 15px !important;
-        padding: 1rem 2rem !important;
+        border-radius: 10px !important;
+        padding: 0.8rem 1.5rem !important;
         font-weight: 600 !important;
-        font-size: 1rem !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+        font-size: 0.95rem !important;
+        transition: all 0.2s ease !important;
+        box-shadow: var(--shadow-light) !important;
+        font-family: inherit !important;
+        cursor: pointer !important;
     }
     
     .stButton > button:hover {
-        transform: translateY(-3px) !important;
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: var(--shadow-medium) !important;
+        background: linear-gradient(135deg, var(--secondary-color), var(--primary-color)) !important;
     }
     
+    .stButton > button:active {
+        transform: translateY(0) !important;
+    }
+    
+    /* Improved alert messages */
     .success-message {
-        background: linear-gradient(135deg, rgba(0, 212, 170, 0.2), rgba(0, 212, 170, 0.1));
+        background: rgba(0, 212, 170, 0.15);
         border: 2px solid var(--success-color);
-        border-radius: 15px;
-        padding: 1.5rem;
+        border-radius: 12px;
+        padding: 1.2rem;
         margin: 1rem 0;
         color: var(--success-color);
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        font-weight: 500;
     }
     
     .error-message {
-        background: linear-gradient(135deg, rgba(255, 107, 107, 0.2), rgba(255, 107, 107, 0.1));
+        background: rgba(255, 107, 107, 0.15);
         border: 2px solid var(--error-color);
-        border-radius: 15px;
-        padding: 1.5rem;
+        border-radius: 12px;
+        padding: 1.2rem;
         margin: 1rem 0;
         color: var(--error-color);
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(5px);
+        -webkit-backdrop-filter: blur(5px);
+        font-weight: 500;
     }
     
+    /* Enhanced ticket display */
     .ticket-display {
-        background: var(--card-bg);
-        border-radius: 20px;
-        padding: 2rem;
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 1.5rem;
         border: 2px solid var(--border-color);
-        backdrop-filter: blur(20px);
-        margin: 2rem 0;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        margin: 1.5rem 0;
         position: relative;
         overflow: hidden;
-        opacity: 1;
-        transform: none;
+        box-shadow: var(--shadow-medium);
     }
     
     .ticket-header {
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1.5rem;
     }
     
     .ticket-header h2 {
-        color: #667eea;
-        font-size: 2rem;
+        color: var(--primary-color);
+        font-size: 1.5rem;
         margin-bottom: 0.5rem;
+        font-weight: 600;
     }
     
     .ticket-detail {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 1rem 0;
+        padding: 0.8rem 0;
         border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.9rem;
+    }
+    
+    .ticket-detail:last-child {
+        border-bottom: none;
     }
     
     .ticket-label {
-        font-weight: 600;
+        font-weight: 500;
         color: var(--text-secondary);
     }
     
     .ticket-value {
-        font-weight: 700;
+        font-weight: 600;
         color: var(--text-primary);
+        text-align: right;
+        word-break: break-word;
     }
     
+    /* QR container improvements */
     .qr-container {
         text-align: center;
-        background: var(--card-bg);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 2rem 0;
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin: 1.5rem 0;
         border: 1px solid var(--border-color);
-        backdrop-filter: blur(20px);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        box-shadow: var(--shadow-medium);
     }
     
     .qr-code-img {
-        max-width: 200px;
-        border-radius: 10px;
+        max-width: 180px;
+        border-radius: 8px;
         background: white;
-        padding: 10px;
+        padding: 8px;
         margin: 1rem auto;
         display: block;
+        box-shadow: var(--shadow-light);
     }
     
+    /* Enhanced payment link */
     .payment-link {
-        display: inline-block;
-        background: var(--secondary-gradient);
+        display: block;
+        background: linear-gradient(135deg, #f093fb, #f5576c);
         color: white !important;
         text-decoration: none;
-        padding: 1rem 2rem;
-        border-radius: 15px;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
         font-weight: 600;
         margin: 1rem 0;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(240, 147, 251, 0.4);
+        transition: all 0.2s ease;
+        box-shadow: var(--shadow-light);
         text-align: center;
-        width: 100%;
-        display: block;
+        font-size: 0.95rem;
     }
     
     .payment-link:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 25px rgba(240, 147, 251, 0.6);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
         text-decoration: none;
         color: white !important;
+        background: linear-gradient(135deg, #f5576c, #f093fb);
     }
     
+    /* Hide Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stDeployButton {display: none;}
     
+    /* Enhanced mobile responsiveness */
     @media (max-width: 768px) {
         .main-title {
-            font-size: 2.5rem;
+            font-size: 2rem;
+            margin: 1rem 0;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .chat-container {
+            max-height: 400px;
+            padding: 0.8rem;
         }
         
         .chat-message {
-            padding: 1rem;
-            margin-bottom: 1rem;
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.8rem;
+            font-size: 0.9rem;
         }
         
         .chat-message.user {
@@ -492,7 +590,64 @@ def load_optimized_css():
         }
         
         .booking-form {
-            padding: 1.5rem;
+            padding: 1.2rem;
+        }
+        
+        .avatar {
+            width: 32px;
+            height: 32px;
+            font-size: 0.9rem;
+        }
+        
+        .ticket-detail {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.3rem;
+            padding: 0.6rem 0;
+        }
+        
+        .ticket-value {
+            text-align: left;
+        }
+    }
+    
+    /* Extra small devices */
+    @media (max-width: 480px) {
+        .main-title {
+            font-size: 1.8rem;
+        }
+        
+        .chat-container {
+            max-height: 350px;
+            padding: 0.6rem;
+        }
+        
+        .booking-form {
+            padding: 1rem;
+        }
+        
+        .stButton > button {
+            padding: 0.7rem 1.2rem !important;
+            font-size: 0.9rem !important;
+        }
+    }
+    
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+        :root {
+            --bg-card: rgba(255, 255, 255, 0.15);
+            --border-color: rgba(255, 255, 255, 0.5);
+            --text-primary: #ffffff;
+            --text-secondary: #e0e0e0;
+        }
+    }
+    
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+        * {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
         }
     }
     </style>
@@ -587,7 +742,7 @@ def send_email_confirmation(email, booking_details):
         <html>
         <head>
             <style>
-                body {{ font-family: 'Montserrat', sans-serif; line-height: 1.6; color: #333; }}
+                body {{ font-family: 'Inter', sans-serif; line-height: 1.6; color: #333; }}
                 .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
                 .header {{ background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }}
                 .content {{ padding: 30px; background: #f8f9fa; }}
@@ -861,7 +1016,7 @@ def generate_qr_code(booking_id, hash_code):
         
         img = qr.make_image(fill_color="black", back_color="white")
         buffered = io.BytesIO()
-        img.save(buffered)
+        img.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
         
         return img_str
@@ -869,7 +1024,7 @@ def generate_qr_code(booking_id, hash_code):
         st.error(f"QR code generation failed: {str(e)}")
         return None
 
-# Chat with AI
+# Chat with AI - Enhanced with better error handling
 def chat_with_ai(messages):
     try:
         if not client:
@@ -908,7 +1063,13 @@ If users want to check bookings, ask for their booking ID, email address, or pho
         
         return response.choices[0].message.content
     except Exception as e:
-        return f"I apologize, but I'm experiencing technical difficulties. Please try again. Error: {str(e)}"
+        error_msg = str(e).lower()
+        if "api key" in error_msg or "authentication" in error_msg:
+            return "I'm experiencing authentication issues. Please contact support if this persists."
+        elif "rate limit" in error_msg:
+            return "I'm currently experiencing high traffic. Please try again in a moment."
+        else:
+            return f"I apologize, but I'm experiencing technical difficulties. Please try again. If the issue persists, please contact support."
 
 # Function to display booking validity
 def display_booking_validity(booking_info):
@@ -1016,8 +1177,6 @@ def main():
     
     st.markdown('<h1 class="main-title">🏛️ Athena Museum</h1>', unsafe_allow_html=True)
     st.markdown('<p class="subtitle">AI-Powered Booking Assistant</p>', unsafe_allow_html=True)
-    
-    # Removed the image that was causing the icon issue
     
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
     
