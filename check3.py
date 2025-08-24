@@ -101,7 +101,7 @@ def init_firebase():
 def init_groq():
     try:
         # Use the new API key directly - no caching issues
-        api_key = "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"
+        api_key = "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"
         
         # Create Groq client with proper error handling
         client = Groq(api_key=api_key)
